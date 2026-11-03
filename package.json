@@ -1,0 +1,27 @@
+{
+  "name": "sevaconnect",
+  "version": "1.0.0",
+  "description": "SevaConnect — Your Trusted Local Service Partner",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "npm --prefix backend start",
+    "test:backend": "npm --prefix backend test",
+    "migrate": "npm --prefix backend run migrate",
+    "create-admin": "npm --prefix backend run create-admin",
+    "build:frontend": "npm --prefix frontend run build",
+    "build": "npm --prefix frontend run build"
+  },
+  "keywords": [
+    "marketplace",
+    "local-services",
+    "home-services",
+    "india",
+    "react",
+    "express",
+    "sqlite",
+    "tailwind"
+  ],
+  "author": "SevaConnect Team",
+  "license": "ISC"
+}

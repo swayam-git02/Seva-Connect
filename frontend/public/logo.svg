@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 48" fill="none">
+  <!-- Brand Icon -->
+  <g transform="translate(0, 4)">
+    <rect width="40" height="40" rx="10" fill="#087443"/>
+    <path d="M20 7C12.82 7 7 12.82 7 20C7 27.18 12.82 33 20 33C27.18 33 33 27.18 33 20C33 12.82 27.18 7 20 7Z" fill="#F1F8F4" fill-opacity="0.2"/>
+    <path d="M14 22C14 18.134 17.134 15 21 15C23.9 15 26.25 17.35 26.25 20.25C26.25 23.15 23.9 25.5 21 25.5H14V22Z" fill="#FFFFFF"/>
+    <path d="M26 18C26 21.866 22.866 25 19 25C16.1 25 13.75 22.65 13.75 19.75C13.75 16.85 16.1 14.5 19 14.5H26V18Z" fill="#5BAE86"/>
+    <circle cx="20" cy="20" r="2.5" fill="#087443"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="50" y="27" font-family="'Inter', sans-serif" font-size="20" font-weight="700" fill="#101828" letter-spacing="-0.5">Seva<tspan fill="#087443">Connect</tspan></text>
+  <text x="51" y="38" font-family="'Inter', sans-serif" font-size="8.5" font-weight="500" fill="#667085" letter-spacing="0.2">YOUR TRUSTED LOCAL PARTNER</text>
+</svg>

@@ -368,13 +368,19 @@ export const bookingService = {
     };
   },
 
-  // Ye Ending Code sirf in-progress job ke liye verify karta hai.
-  // Sahi code par completion, payment status aur provider earning ledger ek transaction mein update hote hain.
-  verifyEndingCode(bookingId, providerId, inputCode) {
-    const booking = db.prepare('SELECT id, provider_id, status, total_price_paise FROM bookings WHERE id = ?').get(bookingId);
+  // Ye Ending Code verify karke job complete karta hai.
+  // Assigned provider ya booking ka customer dono valid 6-digit cryptographic code enter karke service complete kar sakte hain.
+  // Sahi code par completion, payment status aur provider earning ledger ek atomic transaction mein update hote hain.
+  verifyEndingCode(bookingId, userId, inputCode, userRole = null) {
+    const booking = db.prepare('SELECT id, provider_id, customer_id, status, total_price_paise FROM bookings WHERE id = ?').get(bookingId);
     if (!booking) throw new Error('Booking not found.');
-    if (booking.provider_id !== providerId) {
-      throw new Error('Unauthorized. You are not the assigned provider for this booking.');
+
+    const isAssignedProvider = booking.provider_id === userId;
+    const isBookingCustomer = booking.customer_id === userId;
+    const isAdmin = userRole === USER_ROLES.ADMIN;
+
+    if (!isAssignedProvider && !isBookingCustomer && !isAdmin) {
+      throw new Error('Unauthorized. You are not authorized to complete this booking.');
     }
 
     if (booking.status !== BOOKING_STATUS.IN_PROGRESS) {
@@ -402,6 +408,7 @@ export const bookingService = {
     // Atomic completion transition
     const now = new Date().toISOString();
     const netEarningPaise = Math.round(booking.total_price_paise * 0.9);
+    const assignedProviderId = booking.provider_id;
 
     db.transaction(() => {
       db.prepare(`
@@ -417,15 +424,15 @@ export const bookingService = {
       db.prepare(`
         UPDATE provider_profiles SET total_jobs = total_jobs + 1, updated_at = ?
         WHERE user_id = ?
-      `).run(now, providerId);
+      `).run(now, assignedProviderId);
 
-      // Record transaction
+      // Record transaction for assigned provider
       db.prepare(`
         INSERT INTO provider_transactions (id, provider_id, booking_id, amount_paise, type, description, created_at)
         VALUES (?, ?, ?, ?, 'credit', ?, ?)
       `).run(
         `txn-${crypto.randomUUID()}`,
-        providerId,
+        assignedProviderId,
         bookingId,
         netEarningPaise,
         `Payment credit for Booking #${bookingId}`,
@@ -439,7 +446,7 @@ export const bookingService = {
         `bsh-${crypto.randomUUID()}`,
         bookingId,
         BOOKING_STATUS.COMPLETED,
-        providerId,
+        userId,
         'Ending Code verified. Job closed and payment processed.',
         now
       );
@@ -449,6 +456,106 @@ export const bookingService = {
       success: true,
       message: 'Ending Code verified! Job marked as Completed and payment credited.',
       status: BOOKING_STATUS.COMPLETED,
+    };
+  },
+
+  // Ye function ending code verification ke baad customer ya provider dwara payment process karne aur booking close karne ke liye use hota hai.
+  collectPayment(bookingId, userId, payload = {}) {
+    const booking = db.prepare('SELECT id, provider_id, customer_id, status, payment_status, total_price_paise FROM bookings WHERE id = ?').get(bookingId);
+    if (!booking) throw new Error('Booking not found.');
+
+    if (booking.provider_id !== userId && booking.customer_id !== userId) {
+      throw new Error('Unauthorized. Only the customer or assigned service provider can process payment for this booking.');
+    }
+
+    const paymentMode = (payload.paymentMode || 'ONLINE').toUpperCase();
+    const transactionId = payload.transactionId || `TXN_${Date.now().toString().slice(-8)}`;
+    const amountRupees = (booking.total_price_paise ? booking.total_price_paise / 100 : 0) || Number(payload.amount || 0);
+    const amountPaise = booking.total_price_paise || Math.round(amountRupees * 100);
+    const now = new Date().toISOString();
+
+    db.transaction(() => {
+      // 1. Update booking status to completed and payment_status to PAID
+      db.prepare(`
+        UPDATE bookings 
+        SET payment_status = 'PAID',
+            status = 'completed',
+            updated_at = ?
+        WHERE id = ?
+      `).run(now, bookingId);
+
+      // 2. Add status history audit record
+      db.prepare(`
+        INSERT INTO booking_status_history (id, booking_id, status, changed_by_user_id, note, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        `bsh-${crypto.randomUUID()}`,
+        bookingId,
+        BOOKING_STATUS.COMPLETED,
+        userId,
+        `Payment of ₹${amountRupees} settled via ${paymentMode} (${transactionId}). Booking officially closed.`,
+        now
+      );
+
+      // 3. Record provider wallet earnings transaction (credit)
+      try {
+        const existingTxn = db.prepare('SELECT id FROM provider_transactions WHERE booking_id = ?').get(bookingId);
+        if (!existingTxn) {
+          db.prepare(`
+            INSERT INTO provider_transactions (id, provider_id, booking_id, amount_paise, type, description, created_at)
+            VALUES (?, ?, ?, ?, 'credit', ?, ?)
+          `).run(
+            `txn-${crypto.randomUUID()}`,
+            booking.provider_id,
+            bookingId,
+            Math.round(amountPaise * 0.9), // Net after 10% platform fee
+            `Earnings for Job #${bookingId} paid via ${paymentMode}`,
+            now
+          );
+        }
+      } catch (txnErr) {
+        console.warn('Provider transaction notice:', txnErr.message);
+      }
+
+      // 4. Send notifications to both Customer and Provider
+      try {
+        db.prepare(`
+          INSERT INTO notifications (id, user_id, title, message, type, link, created_at)
+          VALUES (?, ?, ?, ?, 'success', ?, ?)
+        `).run(
+          `notif-${crypto.randomUUID()}`,
+          booking.customer_id,
+          'Payment Successful & Booking Closed',
+          `Your payment of ₹${amountRupees} for booking #${bookingId} was successful via ${paymentMode}. Thank you for using SevaConnect!`,
+          `/customer/bookings/${bookingId}`,
+          now
+        );
+
+        db.prepare(`
+          INSERT INTO notifications (id, user_id, title, message, type, link, created_at)
+          VALUES (?, ?, ?, ?, 'success', ?, ?)
+        `).run(
+          `notif-${crypto.randomUUID()}`,
+          booking.provider_id,
+          'Payment Received & Booking Closed',
+          `Payment of ₹${amountRupees} for booking #${bookingId} has been confirmed. Net earnings added to your wallet.`,
+          `/provider/bookings/${bookingId}`,
+          now
+        );
+      } catch (notifErr) {
+        console.warn('Notification notice:', notifErr.message);
+      }
+    })();
+
+    return {
+      success: true,
+      message: `Payment of ₹${amountRupees} settled via ${paymentMode}. Booking closed successfully!`,
+      bookingId,
+      amount: amountRupees,
+      paymentMode,
+      transactionId,
+      paymentStatus: 'PAID',
+      status: 'completed',
     };
   },
 
@@ -484,6 +591,38 @@ export const bookingService = {
     })();
 
     return { success: true, message: 'Booking cancelled.' };
+  },
+
+  // Ye function booking ko completely delete/remove karta hai jab provider ya customer use nahi lena chahta.
+  // Cascade delete se uske verification, photos, history aur audit records safely saaf ho jaate hain.
+  deleteBooking(bookingId, userId, userRole = null) {
+    const booking = db.prepare('SELECT id, customer_id, provider_id, status FROM bookings WHERE id = ?').get(bookingId);
+    if (!booking) throw new Error('Booking not found.');
+
+    const isAssignedProvider = booking.provider_id === userId;
+    const isCustomer = booking.customer_id === userId;
+    const isAdmin = userRole === USER_ROLES.ADMIN;
+
+    if (!isAssignedProvider && !isCustomer && !isAdmin) {
+      throw new Error('Unauthorized. You do not have permission to delete this booking.');
+    }
+
+    db.transaction(() => {
+      db.prepare('DELETE FROM provider_transactions WHERE booking_id = ?').run(bookingId);
+      db.prepare('DELETE FROM messages WHERE booking_id = ?').run(bookingId);
+      db.prepare('DELETE FROM complaints WHERE booking_id = ?').run(bookingId);
+      db.prepare('DELETE FROM reviews WHERE booking_id = ?').run(bookingId);
+      db.prepare('DELETE FROM booking_service_photos WHERE booking_id = ?').run(bookingId);
+      db.prepare('DELETE FROM booking_verification WHERE booking_id = ?').run(bookingId);
+      db.prepare('DELETE FROM booking_status_history WHERE booking_id = ?').run(bookingId);
+      db.prepare('DELETE FROM bookings WHERE id = ?').run(bookingId);
+    })();
+
+    return {
+      success: true,
+      message: `Booking #${bookingId} has been successfully deleted from your job queue.`,
+      bookingId,
+    };
   },
 
   // Ye customer ke unused codes ko naye unpredictable values se replace karta hai aur failed attempts reset karta hai.

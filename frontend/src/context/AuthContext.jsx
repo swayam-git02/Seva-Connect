@@ -20,6 +20,17 @@ export const AuthProvider = ({ children }) => {
       setUser(storedUser);
     }
     setLoading(false);
+
+    // Multi-tab sync: Agar dusre tab mein user login/logout hota hai toh state update ho jaati hai
+    const handleStorageChange = (e) => {
+      if (e.key === 'sevaconnect_user' || e.key === 'sevaconnect_token') {
+        const latest = authService.getCurrentUser();
+        setUser(latest);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   // Ye login form ki credentials service ko bhejkar authenticated user ko app state mein save karta hai.

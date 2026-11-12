@@ -9,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Root directory ya local directory se .env file load karte hain
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config();
 
@@ -29,9 +30,10 @@ export const ENV = {
   // Starting/Ending Code envelopes ko encrypt karne ke liye 32-character AES key
   CODE_ENCRYPTION_KEY: process.env.CODE_ENCRYPTION_KEY || 'sevaconnect_32_byte_secret_key_!!',
   // Cloudinary credentials (before & after service photos store karne ke liye)
-  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
-  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',
-  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || '',
+  CLOUDINARY_CLOUD_NAME: (process.env.CLOUDINARY_CLOUD_NAME || '').trim(),
+  CLOUDINARY_API_KEY: (process.env.CLOUDINARY_API_KEY || '').trim(),
+  CLOUDINARY_API_SECRET: (process.env.CLOUDINARY_API_SECRET || '').trim(),
+  CLOUDINARY_UPLOAD_PRESET: (process.env.CLOUDINARY_UPLOAD_PRESET || '').trim(),
   // Local disk upload directory jab Cloudinary configured na ho
   UPLOAD_DIR: process.env.UPLOAD_DIR || path.resolve(__dirname, '../../uploads'),
 };

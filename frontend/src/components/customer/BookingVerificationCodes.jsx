@@ -1,17 +1,20 @@
 // Ye component customer ko uski authorized booking ke Starting aur Ending Code safely screen par dikhata hai.
-// Provider ko ye component/code response access nahi milna chahiye.
+// Security rule: Provider ko customer ke plaintext codes access nahi milte, unhe customer se maang kar verify karna hota hai.
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, AlertTriangle, Copy, Check, Lock, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Copy, Check, Lock, Eye, EyeOff, RefreshCw, ShieldAlert } from 'lucide-react';
 import { BOOKING_STATUS } from '../../constants/bookingStatuses';
 import verificationService from '../../services/verificationService';
+import { useAuth } from '../../hooks/useAuth';
 
 export const BookingVerificationCodes = ({ booking }) => {
+  const { user, isProvider } = useAuth();
   const [copiedCode, setCopiedCode] = useState(null);
   const [showEndingCode, setShowEndingCode] = useState(false);
   const [startingCode, setStartingCode] = useState(booking?.startingCode || '');
   const [endingCode, setEndingCode] = useState(booking?.endingCode || '');
   const [loadingCodes, setLoadingCodes] = useState(!booking?.startingCode);
+  const [isAccessRestricted, setIsAccessRestricted] = useState(false);
 
   useEffect(() => {
     if (booking?.startingCode && booking?.endingCode) {
@@ -30,10 +33,16 @@ export const BookingVerificationCodes = ({ booking }) => {
             setEndingCode(res.data.endingCode || '');
           }
         })
-        .catch((err) => console.error('Could not fetch customer codes:', err))
+        .catch((err) => {
+          // Agar provider token se request aayi ya 403 Forbidden mila
+          if (err?.status === 403 || isProvider) {
+            setIsAccessRestricted(true);
+          }
+          console.warn('Could not fetch customer codes (codes are restricted to booking customer):', err?.message);
+        })
         .finally(() => setLoadingCodes(false));
     }
-  }, [booking?.id, booking?.startingCode, booking?.endingCode]);
+  }, [booking?.id, booking?.startingCode, booking?.endingCode, isProvider]);
 
   const copyToClipboard = (text, type) => {
     if (!text) return;
@@ -71,17 +80,31 @@ export const BookingVerificationCodes = ({ booking }) => {
       </div>
 
       {/* Prominent Warning Callout as required by Master Prompt */}
-      <div className="p-4 mx-5 mt-5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
-        <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-        <div className="text-xs text-amber-800 leading-relaxed">
-          <p className="font-bold text-amber-900">
-            Never share your Ending Code before the service has been completed.
-          </p>
-          <p className="mt-0.5">
-            The Ending Code releases your payment to the provider. Share it only after you have tested the repair, inspected the work, and are completely satisfied.
-          </p>
+      {isAccessRestricted || isProvider ? (
+        <div className="p-4 mx-5 mt-5 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
+          <ShieldAlert className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+          <div className="text-xs text-blue-800 leading-relaxed">
+            <p className="font-bold text-blue-900">
+              Security Notice: Verification Codes are confidential to the customer.
+            </p>
+            <p className="mt-0.5">
+              Service professionals cannot view OTP codes directly. Ask {booking?.customerName || 'the customer'} to share their 6-digit Starting Code on arrival and Ending Code after work inspection.
+            </p>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="p-4 mx-5 mt-5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-xs text-amber-800 leading-relaxed">
+            <p className="font-bold text-amber-900">
+              Never share your Ending Code before the service has been completed.
+            </p>
+            <p className="mt-0.5">
+              The Ending Code releases your payment to the provider. Share it only after you have tested the repair, inspected the work, and are completely satisfied.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Verification Code Cards Grid */}
       <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -102,10 +125,16 @@ export const BookingVerificationCodes = ({ booking }) => {
           </div>
 
           <div className="flex items-center justify-between bg-white px-4 py-3 rounded-lg border border-slate-200 shadow-inner my-2">
-            <span className="text-2xl font-mono font-extrabold tracking-widest text-brand-800">
-              {loadingCodes ? '••••••' : startingCode || 'Pending'}
+            <span className={`text-2xl font-mono font-extrabold tracking-widest ${
+              isAccessRestricted ? 'text-xs tracking-normal font-sans text-slate-500 font-semibold' : 'text-brand-800'
+            }`}>
+              {loadingCodes
+                ? '••••••'
+                : isAccessRestricted
+                ? 'Private to Customer'
+                : startingCode || 'Generating...'}
             </span>
-            {startingCode && (
+            {startingCode && !isAccessRestricted && (
               <button
                 type="button"
                 onClick={() => copyToClipboard(startingCode, 'start')}
@@ -139,30 +168,40 @@ export const BookingVerificationCodes = ({ booking }) => {
           </div>
 
           <div className="flex items-center justify-between bg-white px-4 py-3 rounded-lg border border-slate-200 shadow-inner my-2">
-            <span className="text-2xl font-mono font-extrabold tracking-widest text-content-dark">
-              {loadingCodes ? '••••••' : showEndingCode ? endingCode || 'Pending' : '••••••'}
+            <span className={`text-2xl font-mono font-extrabold tracking-widest ${
+              isAccessRestricted ? 'text-xs tracking-normal font-sans text-slate-500 font-semibold' : 'text-content-dark'
+            }`}>
+              {loadingCodes
+                ? '••••••'
+                : isAccessRestricted
+                ? 'Private to Customer'
+                : showEndingCode
+                ? endingCode || 'Generating...'
+                : '••••••'}
             </span>
 
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setShowEndingCode(!showEndingCode)}
-                className="p-1.5 text-content-muted hover:text-content-dark transition-colors"
-                title={showEndingCode ? 'Hide' : 'Reveal'}
-              >
-                {showEndingCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-              {showEndingCode && endingCode && (
+            {!isAccessRestricted && (
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => copyToClipboard(endingCode, 'end')}
-                  className="p-1.5 text-content-muted hover:text-brand-600 transition-colors"
-                  title="Copy code"
+                  onClick={() => setShowEndingCode(!showEndingCode)}
+                  className="p-1.5 text-content-muted hover:text-content-dark transition-colors"
+                  title={showEndingCode ? 'Hide' : 'Reveal'}
                 >
-                  {copiedCode === 'end' ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                  {showEndingCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
-              )}
-            </div>
+                {showEndingCode && endingCode && (
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(endingCode, 'end')}
+                    className="p-1.5 text-content-muted hover:text-brand-600 transition-colors"
+                    title="Copy code"
+                  >
+                    {copiedCode === 'end' ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <p className="text-[11px] text-content-muted leading-tight">

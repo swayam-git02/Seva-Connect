@@ -2,11 +2,12 @@
 // Provider actual customer codes nahi dekh sakta; woh sirf entered code verify karta hai.
 
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Phone, MapPin, Calendar, Clock, Truck, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Phone, MapPin, Calendar, Clock, Truck, ShieldCheck, CheckCircle2, Trash2, AlertTriangle } from 'lucide-react';
 import ActiveJobPanel from '../../components/provider/ActiveJobPanel';
 import StatusBadge from '../../components/common/StatusBadge';
 import Button from '../../components/common/Button';
+import Modal from '../../components/common/Modal';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
 import bookingService from '../../services/bookingService';
 import { formatCurrency } from '../../utils/formatCurrency';
@@ -17,9 +18,12 @@ import { useNotifications } from '../../hooks/useNotifications';
 
 export const ProviderBookingDetailsPage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { showSuccess, showError } = useNotifications();
 
   const loadBooking = async () => {
@@ -50,13 +54,29 @@ export const ProviderBookingDetailsPage = () => {
     }
   };
 
+  // Provider booking ko delete/reject kar sakta hai jo wo accept nahi karna chahta
+  const handleDeleteBooking = async () => {
+    if (!booking) return;
+    setIsDeleting(true);
+    try {
+      await bookingService.deleteBooking(booking.id);
+      showSuccess('Booking Deleted', `Booking #${booking.id} has been removed from your job queue.`);
+      navigate(ROUTES.PROVIDER_BOOKINGS);
+    } catch (err) {
+      showError('Delete Failed', err.message || 'Unable to delete booking.');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
+
   if (loading) return <SkeletonLoader type="card" count={2} />;
   if (!booking) return <div>Booking not found</div>;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Back button */}
-      <div className="flex items-center justify-between">
+      {/* Back button & Action buttons */}
+      <div className="flex items-center justify-between gap-3">
         <Link
           to={ROUTES.PROVIDER_BOOKINGS}
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-content-secondary hover:text-content-dark"
@@ -65,17 +85,30 @@ export const ProviderBookingDetailsPage = () => {
           <span>Back to Job Queue</span>
         </Link>
 
-        {booking.status === BOOKING_STATUS.CONFIRMED && (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleMarkOnTheWay}
-            isLoading={isUpdatingStatus}
-            leftIcon={Truck}
+        <div className="flex items-center gap-2">
+          {/* Delete booking button */}
+          <button
+            type="button"
+            onClick={() => setShowDeleteModal(true)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-lg transition-colors"
+            title="Delete this booking from your queue"
           >
-            Mark as On The Way
-          </Button>
-        )}
+            <Trash2 className="h-3.5 w-3.5" />
+            <span>Delete Booking</span>
+          </button>
+
+          {booking.status === BOOKING_STATUS.CONFIRMED && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleMarkOnTheWay}
+              isLoading={isUpdatingStatus}
+              leftIcon={Truck}
+            >
+              Mark as On The Way
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Main Execution Console */}
@@ -104,6 +137,52 @@ export const ProviderBookingDetailsPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => !isDeleting && setShowDeleteModal(false)}
+        title="Delete Booking Request"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-sm">
+            <AlertTriangle className="h-5 w-5 text-rose-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">Are you sure you want to delete this booking?</p>
+              <p className="text-xs text-rose-700 mt-1">
+                Booking #{booking?.id} ({booking?.serviceTitle}) will be permanently deleted from your job queue.
+              </p>
+            </div>
+          </div>
+
+          <p className="text-xs text-content-secondary">
+            Customer: <strong className="text-content-dark">{booking?.customerName}</strong>
+            <br />
+            Scheduled for: <strong>{booking?.scheduledDate ? formatDate(booking.scheduledDate) : ''} at {booking?.scheduledTime}</strong>
+          </p>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-surface-border">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDeleteModal(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleDeleteBooking}
+              isLoading={isDeleting}
+              leftIcon={Trash2}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              Delete Booking
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

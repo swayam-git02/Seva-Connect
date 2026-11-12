@@ -38,6 +38,38 @@ export const bookingService = {
       message: response?.message || 'Booking cancelled.',
     };
   },
+
+  // Ye method ending code verify hone ke baad doorstep payment collect aur booking close karta hai
+  async collectPayment(id, payload = {}) {
+    const response = await apiClient.post(`/bookings/${id}/collect-payment`, payload);
+    return {
+      success: true,
+      message: response?.message || 'Payment collected and booking closed.',
+      data: response?.data,
+    };
+  },
+
+  // Ye method unwanted booking ko database aur job queue se permanently delete karta hai
+  async deleteBooking(id) {
+    try {
+      const response = await apiClient.delete(`/bookings/${id}`);
+      return {
+        success: true,
+        message: response?.message || 'Booking deleted successfully.',
+        data: response?.data,
+      };
+    } catch (err) {
+      if (err.status === 404 || err.status === 405) {
+        const response = await apiClient.post(`/bookings/${id}/delete`);
+        return {
+          success: true,
+          message: response?.message || 'Booking deleted successfully.',
+          data: response?.data,
+        };
+      }
+      throw err;
+    }
+  },
 };
 
 export default bookingService;

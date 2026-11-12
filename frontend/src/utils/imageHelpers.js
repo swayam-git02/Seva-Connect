@@ -38,3 +38,17 @@ export const PROVIDER_AVATARS = [
 export const FALLBACK_PLACEHOLDER = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300" fill="%23F1F8F4"><rect width="400" height="300" fill="%23F1F8F4"/><text x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="600" fill="%23087443">SevaConnect Service</text></svg>`;
 
 export const FALLBACK_AVATAR = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" fill="%23E1F1E8"><circle cx="50" cy="50" r="50" fill="%23E1F1E8"/><circle cx="50" cy="40" r="20" fill="%23087443"/><path d="M20 85 C20 65, 80 65, 80 85 Z" fill="%23087443"/></svg>`;
+
+// Ye function local upload paths (/uploads/...) ya remote URLs ko full working URL mein badalta hai
+// Agar image backend local disk par save hui hai, toh backend ka domain (http://localhost:5000) prepend hota hai
+export const resolveImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+  const backendHost = apiBase.replace(/\/api\/v1\/?$/, '');
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return `${backendHost}${cleanPath}`;
+};
+

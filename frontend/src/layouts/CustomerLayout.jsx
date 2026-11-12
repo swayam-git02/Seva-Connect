@@ -24,6 +24,11 @@ export const CustomerLayout = () => {
     return <Navigate to={ROUTES.LOGIN} replace state={{ returnUrl: window.location.pathname }} />;
   }
 
+  // Agar logged in user service provider hai, toh use provider portal par redirect karte hain
+  if (!isCustomer) {
+    return <Navigate to={ROUTES.PROVIDER_DASHBOARD} replace />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-surface-muted">
       <PublicNavbar />

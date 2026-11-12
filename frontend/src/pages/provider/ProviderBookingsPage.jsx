@@ -1,35 +1,63 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Clock, MapPin, ChevronRight, Phone, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, ChevronRight, Phone, CheckCircle2, Trash2, AlertTriangle } from 'lucide-react';
 import StatusBadge from '../../components/common/StatusBadge';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
 import EmptyState from '../../components/common/EmptyState';
+import Modal from '../../components/common/Modal';
+import Button from '../../components/common/Button';
 import bookingService from '../../services/bookingService';
 import { formatCurrency } from '../../utils/formatCurrency';
 import { formatDate } from '../../utils/formatDate';
 import { useAuth } from '../../hooks/useAuth';
+import { useNotifications } from '../../hooks/useNotifications';
 import { BOOKING_STATUS } from '../../constants/bookingStatuses';
 
 export const ProviderBookingsPage = () => {
   const { user } = useAuth();
+  const { showSuccess, showError } = useNotifications();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('ALL');
+  const [bookingToDelete, setBookingToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const fetchBookings = async () => {
+    setLoading(true);
+    try {
+      const res = await bookingService.getBookings({ providerId: user?.id });
+      setBookings(res.data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchBookings = async () => {
-      setLoading(true);
-      try {
-        const res = await bookingService.getBookings({ providerId: user?.id });
-        setBookings(res.data || []);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchBookings();
   }, [user]);
+
+  const handleDeleteBooking = async () => {
+    if (!bookingToDelete) return;
+    setIsDeleting(true);
+    try {
+      await bookingService.deleteBooking(bookingToDelete.id);
+      showSuccess('Booking Deleted', `Booking #${bookingToDelete.id} removed from your job queue.`);
+      setBookings((prev) => prev.filter((b) => b.id !== bookingToDelete.id));
+      setBookingToDelete(null);
+    } catch (err) {
+      if (err.status === 404) {
+        setBookings((prev) => prev.filter((b) => b.id !== bookingToDelete.id));
+        setBookingToDelete(null);
+        showSuccess('Booking Removed', `Booking #${bookingToDelete.id} is no longer in your queue.`);
+      } else {
+        showError('Delete Failed', err.message || 'Unable to delete booking.');
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const filtered = bookings.filter((b) => {
     if (filter === 'ALL') return true;
@@ -110,18 +138,80 @@ export const ProviderBookingsPage = () => {
                   </span>
                 </div>
 
-                <Link
-                  to={`/provider/bookings/${b.id}`}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-sm transition-all"
-                >
-                  <span>Open Job Console</span>
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
+                <div className="flex items-center gap-2">
+                  {/* Delete button: provider jo booking attend nahi karna chahta use queue se delete kar sake */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setBookingToDelete(b);
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-2 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 hover:text-rose-700 border border-rose-200 rounded-lg transition-colors"
+                    title="Delete this booking from your queue"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete</span>
+                  </button>
+
+                  <Link
+                    to={`/provider/bookings/${b.id}`}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-brand-500 hover:bg-brand-600 rounded-lg shadow-sm transition-all"
+                  >
+                    <span>Open Job Console</span>
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Confirmation Modal: accidental deletion se bachane ke liye confirmation dialog */}
+      <Modal
+        isOpen={!!bookingToDelete}
+        onClose={() => !isDeleting && setBookingToDelete(null)}
+        title="Delete Booking Request"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 text-sm">
+            <AlertTriangle className="h-5 w-5 text-rose-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">Are you sure you want to delete this booking?</p>
+              <p className="text-xs text-rose-700 mt-1">
+                Booking #{bookingToDelete?.id} ({bookingToDelete?.serviceTitle}) will be permanently deleted from your job queue.
+              </p>
+            </div>
+          </div>
+
+          <p className="text-xs text-content-secondary">
+            Customer: <strong className="text-content-dark">{bookingToDelete?.customerName}</strong>
+            <br />
+            Scheduled for: <strong>{bookingToDelete?.scheduledDate ? formatDate(bookingToDelete.scheduledDate) : ''} at {bookingToDelete?.scheduledTime}</strong>
+          </p>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-surface-border">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBookingToDelete(null)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleDeleteBooking}
+              isLoading={isDeleting}
+              leftIcon={Trash2}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              Delete Booking
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

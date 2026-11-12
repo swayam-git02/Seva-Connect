@@ -69,19 +69,56 @@ router.post('/:id/verify-start-code', authenticate, authorize(USER_ROLES.PROVIDE
 router.post('/:id/verify-starting-code', authenticate, authorize(USER_ROLES.PROVIDER), verifyLimiter, handleVerifyStart);
 
 // Ye handler Ending Code verify karke allowed workflow mein job complete karta hai.
+// Provider ya booking customer (jisne Ending Code generate kiya hai) dono valid 6-digit code submit karke service conclude kar sakte hain.
 const handleVerifyEnd = (req, res) => {
   try {
     const code = req.body.code;
     if (!code) return sendError(res, 'Ending Code is required', 400);
-    const result = bookingService.verifyEndingCode(req.params.id, req.user.id, code);
+    const result = bookingService.verifyEndingCode(req.params.id, req.user.id, code, req.user.role);
     return sendSuccess(res, result, result.message);
   } catch (err) {
     return sendError(res, err.message, 400);
   }
 };
 
-router.post('/:id/verify-end-code', authenticate, authorize(USER_ROLES.PROVIDER), verifyLimiter, handleVerifyEnd);
-router.post('/:id/verify-ending-code', authenticate, authorize(USER_ROLES.PROVIDER), verifyLimiter, handleVerifyEnd);
+router.post(
+  '/:id/verify-end-code',
+  authenticate,
+  authorize([USER_ROLES.PROVIDER, USER_ROLES.CUSTOMER, USER_ROLES.ADMIN]),
+  verifyLimiter,
+  handleVerifyEnd
+);
+router.post(
+  '/:id/verify-ending-code',
+  authenticate,
+  authorize([USER_ROLES.PROVIDER, USER_ROLES.CUSTOMER, USER_ROLES.ADMIN]),
+  verifyLimiter,
+  handleVerifyEnd
+);
+
+// Ye endpoint ending code verification ke baad provider ya customer dwara payment process karne aur booking close karne ke liye use hota hai.
+const handleProcessPayment = (req, res) => {
+  try {
+    const result = bookingService.collectPayment(req.params.id, req.user.id, req.body);
+    return sendSuccess(res, result, result.message);
+  } catch (err) {
+    return sendError(res, err.message, 400);
+  }
+};
+
+router.post(
+  '/:id/collect-payment',
+  authenticate,
+  authorize([USER_ROLES.PROVIDER, USER_ROLES.ADMIN, USER_ROLES.CUSTOMER]),
+  handleProcessPayment
+);
+
+router.post(
+  '/:id/pay',
+  authenticate,
+  authorize([USER_ROLES.PROVIDER, USER_ROLES.ADMIN, USER_ROLES.CUSTOMER]),
+  handleProcessPayment
+);
 
 // Cancel booking
 router.post('/:id/cancel', authenticate, (req, res) => {
@@ -92,6 +129,19 @@ router.post('/:id/cancel', authenticate, (req, res) => {
     return sendError(res, err.message, 400);
   }
 });
+
+// Ye route provider ya customer ko unwanted booking completely delete/remove karne ki permission deta hai.
+const handleDeleteBooking = (req, res) => {
+  try {
+    const result = bookingService.deleteBooking(req.params.id, req.user.id, req.user.role);
+    return sendSuccess(res, result, result.message);
+  } catch (err) {
+    return sendError(res, err.message, 400);
+  }
+};
+
+router.delete('/:id', authenticate, handleDeleteBooking);
+router.post('/:id/delete', authenticate, handleDeleteBooking);
 
 // Ye endpoint customer ke unused codes replace karta hai; service start hone ke baad regeneration allowed nahi hai.
 router.post('/:id/regenerate-codes', authenticate, authorize(USER_ROLES.CUSTOMER), (req, res) => {

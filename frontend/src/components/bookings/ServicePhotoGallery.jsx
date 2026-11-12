@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, Image as ImageIcon, ZoomIn, X, Clock } from 'lucide-react';
 import photoService from '../../services/photoService';
+import { resolveImageUrl, FALLBACK_PLACEHOLDER } from '../../utils/imageHelpers';
 
 export const ServicePhotoGallery = ({ bookingId }) => {
   const [photos, setPhotos] = useState({ before: [], after: [] });
@@ -59,8 +60,12 @@ export const ServicePhotoGallery = ({ bookingId }) => {
             onClick={() => setSelectedImage(photo)}
           >
             <img
-              src={photo.imageUrl}
+              src={resolveImageUrl(photo.imageUrl)}
               alt={photo.caption || stageLabel}
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = FALLBACK_PLACEHOLDER;
+              }}
               className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-medium">
@@ -161,8 +166,12 @@ export const ServicePhotoGallery = ({ bookingId }) => {
             </button>
             <div className="p-2">
               <img
-                src={selectedImage.imageUrl}
+                src={resolveImageUrl(selectedImage.imageUrl)}
                 alt={selectedImage.caption || 'Enlarged photo'}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = FALLBACK_PLACEHOLDER;
+                }}
                 className="w-full max-h-[75vh] object-contain rounded-xl mx-auto"
               />
             </div>

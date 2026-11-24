@@ -24,7 +24,6 @@ import Button from '../common/Button';
 import SlideButton from '../common/SlideButton';
 import Modal from '../common/Modal';
 import ServicePhotoGallery from '../bookings/ServicePhotoGallery';
-import DummyPaymentGatewayModal from '../payment/DummyPaymentGatewayModal';
 import verificationService from '../../services/verificationService';
 import photoService from '../../services/photoService';
 import bookingService from '../../services/bookingService';
@@ -42,12 +41,7 @@ export const ActiveJobPanel = ({ booking, onStatusUpdated }) => {
   const [isVerifyingStart, setIsVerifyingStart] = useState(false);
   const [isVerifyingEnd, setIsVerifyingEnd] = useState(false);
   const [isWorkFinished, setIsWorkFinished] = useState(false);
-
-  // Payment collection states
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentCollectedSuccess, setPaymentCollectedSuccess] = useState(
-    booking?.paymentStatus === 'PAID'
-  );
+  const [paymentReceived, setPaymentReceived] = useState(booking?.paymentStatus === 'PAID');
 
   // Auto-sync & redirection states (cross-tab payment detection)
   const [autoRedirecting, setAutoRedirecting] = useState(false);
@@ -66,6 +60,11 @@ export const ActiveJobPanel = ({ booking, onStatusUpdated }) => {
 
   const { showSuccess, showError } = useNotifications();
 
+  // Keep the modal state in sync when the parent refreshes the booking.
+  useEffect(() => {
+    setPaymentReceived(booking?.paymentStatus === 'PAID');
+  }, [booking?.paymentStatus]);
+
   // Assigned provider check
   const isAssignedProvider = isProvider && (!booking?.provider_id || user?.id === booking.provider_id);
 
@@ -75,7 +74,7 @@ export const ActiveJobPanel = ({ booking, onStatusUpdated }) => {
 
     const handlePaymentCompleted = (eventData) => {
       if (String(eventData?.bookingId) === String(booking.id)) {
-        setPaymentCollectedSuccess(true);
+        setPaymentReceived(true);
         setAutoRedirecting(true);
         showSuccess('Payment Received!', 'Customer has completed payment. Booking is closed. Redirecting to Provider Dashboard...');
       }
@@ -113,7 +112,7 @@ export const ActiveJobPanel = ({ booking, onStatusUpdated }) => {
     const pollInterval = setInterval(async () => {
       try {
         const res = await bookingService.getBookingById(booking.id);
-        if (res.data?.paymentStatus === 'PAID' || res.data?.status === 'completed') {
+        if (res.data?.paymentStatus === 'PAID') {
           handlePaymentCompleted({ bookingId: booking.id });
         }
       } catch (err) {}
@@ -226,9 +225,8 @@ export const ActiveJobPanel = ({ booking, onStatusUpdated }) => {
     setIsVerifyingEnd(true);
     try {
       const res = await verificationService.verifyEndingCode(booking.id, endingCodeInput.trim());
-      showSuccess('Ending Code Accepted', 'Ending Code verified! Please collect payment from customer to close booking.');
+      showSuccess('Service Completed', 'Ending Code verified. The customer can now complete payment from their booking screen.');
       setEndingCodeInput('');
-      setShowPaymentModal(true); // Automatically opens Collect Payment modal
       if (onStatusUpdated) onStatusUpdated();
     } catch (err) {
       const msg = err.status === 403
@@ -240,24 +238,10 @@ export const ActiveJobPanel = ({ booking, onStatusUpdated }) => {
     }
   };
 
-  // 5. Collect Doorstep Payment & Close Booking
-  const handleCollectPayment = async () => {
-    setIsCollectingPayment(true);
-    try {
-      const res = await bookingService.collectPayment(booking.id, { paymentMode });
-      showSuccess('Booking Closed', res.message || 'Payment collected and booking closed successfully!');
-      setShowPaymentModal(false);
-      setPaymentCollectedSuccess(true);
-      if (onStatusUpdated) onStatusUpdated();
-    } catch (err) {
-      showError('Payment Error', err.message || 'Failed to record payment collection.');
-    } finally {
-      setIsCollectingPayment(false);
-    }
-  };
 
   const isStarted = booking.status === BOOKING_STATUS.STARTED || booking.status === 'in_progress';
   const isCompleted = booking.status === BOOKING_STATUS.COMPLETED || booking.status === 'completed';
+  const isAwaitingCustomerPayment = isCompleted && !paymentReceived;
 
   return (
     <div className="space-y-6">
@@ -468,16 +452,10 @@ export const ActiveJobPanel = ({ booking, onStatusUpdated }) => {
                       </div>
                     </div>
 
-                    {!paymentCollectedSuccess ? (
-                      <Button
-                        type="button"
-                        variant="primary"
-                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2"
-                        onClick={() => setShowPaymentModal(true)}
-                        leftIcon={Banknote}
-                      >
-                        Close Booking & Collect Payment ({formatCurrency(booking.totalPrice)})
-                      </Button>
+                    {booking.paymentStatus !== 'PAID' ? (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs font-semibold text-amber-900">
+                        Payment request sent to the customer. They will complete payment from their booking screen.
+                      </div>
                     ) : (
                       <div className="p-3 bg-emerald-100/70 border border-emerald-300 rounded-lg text-xs font-bold text-emerald-900 flex items-center justify-between">
                         <span className="flex items-center gap-1.5">
@@ -575,18 +553,28 @@ export const ActiveJobPanel = ({ booking, onStatusUpdated }) => {
         </div>
       </div>
 
-      {/* Dummy Payment Gateway Modal (Supports UPI QR, VPA, Cards, Netbanking & Cash) */}
-      <DummyPaymentGatewayModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        booking={booking}
-        userRole="provider"
-        onPaymentSuccess={() => {
-          setShowPaymentModal(false);
-          setPaymentCollectedSuccess(true);
-          if (onStatusUpdated) onStatusUpdated();
-        }}
-      />
+      {/* The provider must wait here after a valid ending-code verification. */}
+      <Modal
+        isOpen={isAwaitingCustomerPayment}
+        title="Waiting for Customer Payment"
+        subtitle="Service completed and ending code verified"
+      >
+        <div className="py-2 text-center space-y-4">
+          <div className="mx-auto h-14 w-14 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
+            <CreditCard className="h-7 w-7" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Payment request sent</h3>
+            <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">
+              Please wait while the customer completes payment of{' '}
+              <strong>{formatCurrency(booking.totalPrice)}</strong> from their booking screen.
+            </p>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-900">
+            This window will close automatically once payment is confirmed.
+          </div>
+        </div>
+      </Modal>
 
       {/* Auto-Redirect Notification Modal (Jab customer online payment kare) */}
       <Modal

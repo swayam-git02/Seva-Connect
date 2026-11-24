@@ -5,12 +5,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
+import LanguageToggle from '../../components/common/LanguageToggle';
 import { useAuth } from '../../hooks/useAuth';
+import { useLanguage } from '../../hooks/useLanguage';
 import { useNotifications } from '../../hooks/useNotifications';
 import { ROUTES } from '../../constants/routes';
 import { isValidEmail, isValidIndianMobile } from '../../utils/validators';
 
 export const CustomerSignupPage = () => {
+  const { t, isHindi } = useLanguage();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -30,32 +33,32 @@ export const CustomerSignupPage = () => {
     e.preventDefault();
 
     if (!formData.fullName.trim() || !formData.email.trim() || !formData.phone.trim() || !formData.password) {
-      showError('Required Fields', 'Please complete all required fields.');
+      showError('Required Fields', isHindi ? 'कृपया सभी आवश्यक फ़ील्ड भरें।' : 'Please complete all required fields.');
       return;
     }
 
     if (!isValidEmail(formData.email)) {
-      showError('Invalid Email', 'Please enter a valid email address.');
+      showError('Invalid Email', isHindi ? 'कृपया मान्य ईमेल पता दर्ज करें।' : 'Please enter a valid email address.');
       return;
     }
 
     if (!isValidIndianMobile(formData.phone)) {
-      showError('Invalid Mobile', 'Please enter a valid 10-digit Indian phone number.');
+      showError('Invalid Mobile', isHindi ? 'कृपया मान्य 10-अंकीय भारतीय फ़ोन नंबर दर्ज करें।' : 'Please enter a valid 10-digit Indian phone number.');
       return;
     }
 
     if (formData.password.length < 6) {
-      showError('Weak Password', 'Password must be at least 6 characters.');
+      showError('Weak Password', isHindi ? 'पासवर्ड कम से कम 6 अक्षरों का होना चाहिए।' : 'Password must be at least 6 characters.');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      showError('Password Mismatch', 'The passwords you entered do not match.');
+      showError('Password Mismatch', isHindi ? 'पासवर्ड मेल नहीं खा रहे हैं।' : 'The passwords you entered do not match.');
       return;
     }
 
     if (!formData.termsAgreed) {
-      showError('Terms Required', 'Please accept the SevaConnect terms to create your account.');
+      showError('Terms Required', isHindi ? 'कृपया आगे बढ़ने के लिए सेवा की शर्तें स्वीकार करें।' : 'Please accept the SevaConnect terms to create your account.');
       return;
     }
 
@@ -68,10 +71,14 @@ export const CustomerSignupPage = () => {
         city: formData.city,
         password: formData.password,
       });
-      showSuccess('Account Created!', `Welcome to SevaConnect, ${user.name}!`);
+
+      showSuccess(
+        isHindi ? 'खाता सफलतापूर्वक बना!' : 'Account Created!',
+        isHindi ? `सेवाकनेक्ट में स्वागत है, ${user.name}!` : `Welcome to SevaConnect, ${user.name}!`
+      );
       navigate(ROUTES.CUSTOMER_DASHBOARD, { replace: true });
     } catch (err) {
-      showError('Signup Failed', err.message || 'Unable to register account.');
+      showError('Registration Failed', err.message || (isHindi ? 'पंजीकरण विफल रहा।' : 'Unable to create account.'));
     } finally {
       setIsLoading(false);
     }
@@ -79,19 +86,22 @@ export const CustomerSignupPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* Prominent Language Choice: English / Hindi */}
+      <LanguageToggle variant="card" />
+
       <div>
         <h1 className="text-2xl font-bold text-content-dark tracking-tight">
-          Create Customer Account
+          {t('auth.createCustomerTitle')}
         </h1>
         <p className="mt-1 text-xs text-content-secondary">
-          Join thousands of Indian families enjoying trusted home doorstep services.
+          {t('auth.createCustomerSubtitle')}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
-          label="Full Name"
-          placeholder="e.g. Adarsh Sharma"
+          label={t('auth.fullName')}
+          placeholder={isHindi ? 'उदा. आदर्श शर्मा' : 'e.g. Adarsh Sharma'}
           leftIcon={User}
           value={formData.fullName}
           onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
@@ -100,7 +110,7 @@ export const CustomerSignupPage = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
-            label="Email Address"
+            label={t('auth.email')}
             type="email"
             placeholder="adarsh@example.com"
             leftIcon={Mail}
@@ -110,7 +120,7 @@ export const CustomerSignupPage = () => {
           />
 
           <Input
-            label="Mobile Number"
+            label={t('auth.phoneNumber')}
             type="tel"
             placeholder="98765 43210"
             leftIcon={Phone}
@@ -122,25 +132,25 @@ export const CustomerSignupPage = () => {
 
         <div>
           <label className="block text-sm font-medium text-content-dark mb-1.5">
-            City / Region
+            {t('auth.city')}
           </label>
           <select
             value={formData.city}
             onChange={(e) => setFormData({ ...formData, city: e.target.value })}
             className="w-full text-sm px-3.5 py-2.5 rounded-lg border border-surface-border bg-white focus:outline-none focus:border-brand-500"
           >
-            <option value="Faridabad">Faridabad (All Sectors)</option>
-            <option value="Gurugram">Gurugram (DLF / Cyber City)</option>
-            <option value="Noida">Noida / Greater Noida</option>
-            <option value="South Delhi">South Delhi</option>
+            <option value="Faridabad">{isHindi ? 'फरीदाबाद (सभी सेक्टर)' : 'Faridabad (All Sectors)'}</option>
+            <option value="Gurugram">{isHindi ? 'गुरुग्राम (डीएलएफ / साइबर सिटी)' : 'Gurugram (DLF / Cyber City)'}</option>
+            <option value="Noida">{isHindi ? 'नोएडा / ग्रेटर नोएडा' : 'Noida / Greater Noida'}</option>
+            <option value="South Delhi">{isHindi ? 'दक्षिण दिल्ली' : 'South Delhi'}</option>
           </select>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
-            label="Password"
+            label={t('auth.password')}
             type={showPassword ? 'text' : 'password'}
-            placeholder="Min 6 characters"
+            placeholder={isHindi ? 'कम से कम 6 अक्षर' : 'Min 6 characters'}
             leftIcon={Lock}
             value={formData.password}
             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -148,9 +158,9 @@ export const CustomerSignupPage = () => {
           />
 
           <Input
-            label="Confirm Password"
+            label={t('auth.confirmPassword')}
             type={showPassword ? 'text' : 'password'}
-            placeholder="Re-enter password"
+            placeholder={isHindi ? 'पासवर्ड दोबारा डालें' : 'Re-enter password'}
             leftIcon={Lock}
             value={formData.confirmPassword}
             onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
@@ -167,7 +177,7 @@ export const CustomerSignupPage = () => {
             className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
           />
           <label htmlFor="terms" className="text-xs text-content-secondary cursor-pointer select-none">
-            I agree to SevaConnect’s <span className="text-brand-600 underline">Terms of Service</span> and <span className="text-brand-600 underline">Safety Policies</span>.
+            {t('auth.termsAgree')}
           </label>
         </div>
 
@@ -178,15 +188,15 @@ export const CustomerSignupPage = () => {
           className="w-full mt-2"
           isLoading={isLoading}
         >
-          Create Customer Account
+          {t('auth.createCustomerTitle')}
         </Button>
       </form>
 
       <div className="pt-4 border-t border-surface-border text-center text-xs text-content-secondary">
         <p>
-          Already have an account?{' '}
+          {t('auth.haveAccount')}{' '}
           <Link to={ROUTES.LOGIN} className="font-semibold text-brand-600 hover:underline">
-            Sign In
+            {t('auth.signIn')}
           </Link>
         </p>
       </div>

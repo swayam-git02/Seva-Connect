@@ -27,6 +27,16 @@ export const providerService = {
     };
   },
 
+  async getMyProfile() {
+    const response = await apiClient.get('/providers/me');
+    return { success: true, data: response?.data };
+  },
+
+  async updateAvailability(isOnline) {
+    const response = await apiClient.put('/providers/me', { isOnline });
+    return { success: true, data: response?.data, message: response?.message };
+  },
+
   async updateProviderProfile(id, updates) {
     const response = await apiClient.put(`/providers/${id}`, updates);
     return {

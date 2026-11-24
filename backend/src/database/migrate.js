@@ -18,6 +18,11 @@ export const runMigrations = () => {
   // Database tables aur indexes create karte hain
   db.exec(SCHEMA_SQL);
 
+  const providerColumns = db.prepare('PRAGMA table_info(provider_profiles)').all();
+  if (!providerColumns.some((column) => column.name === 'is_online')) {
+    db.exec('ALTER TABLE provider_profiles ADD COLUMN is_online INTEGER DEFAULT 1');
+  }
+
   // Agar service categories table khali hai, toh basic standard categories initialize karte hain
   const countStmt = db.prepare('SELECT COUNT(*) as count FROM service_categories');
   const result = countStmt.get();

@@ -5,12 +5,15 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, ShieldCheck, UserCheck, Briefcase } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
+import LanguageToggle from '../../components/common/LanguageToggle';
 import { useAuth } from '../../hooks/useAuth';
+import { useLanguage } from '../../hooks/useLanguage';
 import { useNotifications } from '../../hooks/useNotifications';
 import { ROUTES } from '../../constants/routes';
 import { USER_ROLES } from '../../constants/userRoles';
 
 export const LoginPage = () => {
+  const { t, isHindi } = useLanguage();
   const [role, setRole] = useState(USER_ROLES.CUSTOMER);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -67,13 +70,16 @@ export const LoginPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* Prominent Language Choice: English / Hindi */}
+      <LanguageToggle variant="card" />
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-content-dark tracking-tight">
-          Welcome to SevaConnect
+          {t('auth.welcome')}
         </h1>
         <p className="mt-1 text-xs text-content-secondary">
-          Enter your registered details to access your account.
+          {t('auth.loginSubtitle')}
         </p>
       </div>
 
@@ -92,7 +98,7 @@ export const LoginPage = () => {
               : 'text-content-secondary hover:text-content-dark'
           }`}
         >
-          Customer
+          {t('auth.customer')}
         </button>
         <button
           type="button"
@@ -107,7 +113,7 @@ export const LoginPage = () => {
               : 'text-content-secondary hover:text-content-dark'
           }`}
         >
-          Service Partner
+          {t('auth.provider')}
         </button>
         <button
           type="button"
@@ -122,26 +128,30 @@ export const LoginPage = () => {
               : 'text-content-secondary hover:text-content-dark'
           }`}
         >
-          Admin
+          {t('auth.admin')}
         </button>
       </div>
 
       {/* Quick Test Credential Banner */}
       <div className="bg-brand-50/70 border border-brand-200 rounded-xl p-3 text-xs text-brand-900 flex items-center justify-between">
-        <span>Click to auto-fill {role} credentials:</span>
+        <span>
+          {isHindi
+            ? `${t('auth.' + role.toLowerCase())} क्रेडेंशियल ऑटो-फिल करें:`
+            : `Click to auto-fill ${role} credentials:`}
+        </span>
         <button
           type="button"
           onClick={() => handleQuickFill(role)}
           className="font-bold underline text-brand-700 hover:text-brand-800"
         >
-          Auto Fill
+          {isHindi ? 'ऑटो फिल' : 'Auto Fill'}
         </button>
       </div>
 
       {/* Login Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
-          label="Email Address"
+          label={t('auth.email')}
           type="email"
           placeholder="your.email@example.com"
           leftIcon={Mail}
@@ -152,7 +162,7 @@ export const LoginPage = () => {
 
         <div>
           <Input
-            label="Password"
+            label={t('auth.password')}
             type={showPassword ? 'text' : 'password'}
             placeholder="••••••••"
             leftIcon={Lock}
@@ -175,7 +185,7 @@ export const LoginPage = () => {
               to={ROUTES.FORGOT_PASSWORD}
               className="text-xs font-semibold text-brand-600 hover:underline"
             >
-              Forgot password?
+              {t('auth.forgotPassword')}
             </Link>
           </div>
         </div>
@@ -187,7 +197,9 @@ export const LoginPage = () => {
           className="w-full mt-2"
           isLoading={isLoading}
         >
-          Sign In to {role === USER_ROLES.PROVIDER ? 'Partner Portal' : role === USER_ROLES.ADMIN ? 'Admin Portal' : 'SevaConnect'}
+          {isHindi
+            ? `${role === USER_ROLES.PROVIDER ? 'पार्टनर पोर्टल' : role === USER_ROLES.ADMIN ? 'एडमिन पोर्टल' : 'सेवाकनेक्ट'} में लॉग इन करें`
+            : `Sign In to ${role === USER_ROLES.PROVIDER ? 'Partner Portal' : role === USER_ROLES.ADMIN ? 'Admin Portal' : 'SevaConnect'}`}
         </Button>
       </form>
 
@@ -195,16 +207,16 @@ export const LoginPage = () => {
       <div className="pt-4 border-t border-surface-border text-center text-xs text-content-secondary">
         {role === USER_ROLES.PROVIDER ? (
           <p>
-            New service professional?{' '}
+            {isHindi ? 'नए सेवा कारीगर / तकनीशियन हैं? ' : 'New service professional? '}
             <Link to={ROUTES.PROVIDER_SIGNUP} className="font-semibold text-brand-600 hover:underline">
-              Register as Partner
+              {isHindi ? 'पार्टनर के रूप में पंजीकरण करें' : 'Register as Partner'}
             </Link>
           </p>
         ) : (
           <p>
-            Don't have an account yet?{' '}
+            {isHindi ? 'अभी तक खाता नहीं है? ' : "Don't have an account yet? "}
             <Link to={ROUTES.SIGNUP} className="font-semibold text-brand-600 hover:underline">
-              Create Customer Account
+              {isHindi ? 'ग्राहक खाता बनाएं' : 'Create Customer Account'}
             </Link>
           </p>
         )}

@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS provider_profiles (
   rating_average REAL DEFAULT 0.0,
   rating_count INTEGER DEFAULT 0,
   total_jobs INTEGER DEFAULT 0,
+  is_online INTEGER DEFAULT 1,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

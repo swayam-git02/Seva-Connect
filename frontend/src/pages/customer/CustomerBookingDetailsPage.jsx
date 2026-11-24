@@ -64,6 +64,14 @@ export const CustomerBookingDetailsPage = () => {
     loadBooking();
   }, [id]);
 
+  // The gateway belongs to the customer and opens as soon as the provider has
+  // completed the work, never while the service is still in progress.
+  useEffect(() => {
+    if (booking?.status?.toUpperCase() === BOOKING_STATUS.COMPLETED && booking.paymentStatus !== 'PAID') {
+      setShowPaymentGateway(true);
+    }
+  }, [booking?.status, booking?.paymentStatus]);
+
   // Cross-tab synchronization: jab provider ya customer payment complete kare, auto-close aur redirect
   useEffect(() => {
     if (!booking || booking.paymentStatus === 'PAID') return;
@@ -107,8 +115,10 @@ export const CustomerBookingDetailsPage = () => {
     const pollInterval = setInterval(async () => {
       try {
         const res = await bookingService.getBookingById(id);
-        if (res.data?.paymentStatus === 'PAID' || res.data?.status === 'completed') {
+        if (res.data?.paymentStatus === 'PAID') {
           handlePaymentCompleted({ bookingId: id });
+        } else if (res.data?.status?.toUpperCase() === BOOKING_STATUS.COMPLETED) {
+          setBooking(res.data);
         }
       } catch (err) {}
     }, 3000);
@@ -156,7 +166,7 @@ export const CustomerBookingDetailsPage = () => {
   if (loading) return <SkeletonLoader type="card" count={2} />;
   if (!booking) return <div>Booking not found.</div>;
 
-  const isCompleted = booking.status === BOOKING_STATUS.COMPLETED;
+  const isCompleted = booking.status?.toUpperCase() === BOOKING_STATUS.COMPLETED;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -221,8 +231,8 @@ export const CustomerBookingDetailsPage = () => {
         </div>
       </div>
 
-      {/* Payment Gateway Trigger Card (If not already paid) */}
-      {booking.paymentStatus !== 'PAID' ? (
+      {/* Payment becomes available only after the provider has completed the service. */}
+      {isCompleted && booking.paymentStatus !== 'PAID' ? (
         <div className="bg-gradient-to-r from-emerald-900 via-slate-900 to-emerald-950 text-white rounded-2xl p-6 shadow-lg border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -248,7 +258,7 @@ export const CustomerBookingDetailsPage = () => {
             <span>Pay Now ({formatCurrency(booking.totalPrice)})</span>
           </button>
         </div>
-      ) : (
+      ) : booking.paymentStatus === 'PAID' ? (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700">
@@ -263,7 +273,7 @@ export const CustomerBookingDetailsPage = () => {
             PAID ✓
           </span>
         </div>
-      )}
+      ) : null}
 
       {/* CRITICAL: Dual Verification Codes Component */}
       <BookingVerificationCodes booking={booking} />

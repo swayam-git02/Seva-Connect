@@ -10,8 +10,11 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { ROUTES } from '../../constants/routes';
 import { SERVICE_CATEGORIES } from '../../constants/serviceCategories';
 import { isValidEmail, isValidIndianMobile } from '../../utils/validators';
+import LanguageToggle from '../../components/common/LanguageToggle';
+import { useLanguage } from '../../hooks/useLanguage';
 
 export const ProviderSignupPage = () => {
+  const { t, isHindi } = useLanguage();
   const [formData, setFormData] = useState({
     fullName: '',
     businessName: '',
@@ -85,23 +88,24 @@ export const ProviderSignupPage = () => {
 
   return (
     <div className="space-y-6">
+      <LanguageToggle variant="card" />
       <div>
         <div className="inline-flex items-center gap-1.5 bg-brand-50 px-2.5 py-1 rounded-md text-[11px] font-semibold text-brand-700 mb-2">
           <Briefcase className="h-3.5 w-3.5" />
-          <span>Partner Onboarding Portal</span>
+          <span>{isHindi ? 'पार्टनर ऑनबोर्डिंग पोर्टल' : 'Partner Onboarding Portal'}</span>
         </div>
         <h1 className="text-2xl font-bold text-content-dark tracking-tight">
-          Grow your local service business with SevaConnect.
+          {isHindi ? 'SevaConnect के साथ अपना स्थानीय सेवा व्यवसाय बढ़ाएँ।' : 'Grow your local service business with SevaConnect.'}
         </h1>
         <p className="mt-1 text-xs text-content-secondary">
-          Get verified jobs in your sector, direct bank payouts every Tuesday, and zero platform fee on your first 10 orders.
+          {isHindi ? 'अपने क्षेत्र में सत्यापित काम पाएँ, हर मंगलवार सीधे बैंक भुगतान और पहले 10 ऑर्डर पर कोई प्लेटफ़ॉर्म शुल्क नहीं।' : 'Get verified jobs in your sector, direct bank payouts every Tuesday, and zero platform fee on your first 10 orders.'}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
-            label="Your Full Name"
+            label={isHindi ? 'आपका पूरा नाम' : 'Your Full Name'}
             placeholder="e.g. Ramesh Kumar"
             leftIcon={User}
             value={formData.fullName}
@@ -110,7 +114,7 @@ export const ProviderSignupPage = () => {
           />
 
           <Input
-            label="Business / Enterprise Name"
+            label={isHindi ? 'व्यवसाय / सेवा का नाम' : 'Business / Enterprise Name'}
             placeholder="e.g. Ramesh Electricals"
             leftIcon={Briefcase}
             value={formData.businessName}
@@ -122,7 +126,7 @@ export const ProviderSignupPage = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-content-dark mb-1.5">
-              Primary Trade Category
+              {isHindi ? 'मुख्य सेवा श्रेणी' : 'Primary Trade Category'}
             </label>
             <select
               value={formData.category}
@@ -139,7 +143,7 @@ export const ProviderSignupPage = () => {
 
           <div>
             <label className="block text-sm font-medium text-content-dark mb-1.5">
-              Experience (Years)
+              {t('auth.experience')}
             </label>
             <select
               value={formData.experienceYears}
@@ -156,7 +160,7 @@ export const ProviderSignupPage = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
-            label="Mobile Number (For Job SMS)"
+            label={isHindi ? 'मोबाइल नंबर (काम के SMS के लिए)' : 'Mobile Number (For Job SMS)'}
             type="tel"
             placeholder="98112 34567"
             leftIcon={Phone}
@@ -166,7 +170,7 @@ export const ProviderSignupPage = () => {
           />
 
           <Input
-            label="Email Address"
+            label={t('auth.email')}
             type="email"
             placeholder="ramesh@gmail.com"
             leftIcon={Mail}
@@ -179,7 +183,7 @@ export const ProviderSignupPage = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-content-dark mb-1.5">
-              Service Base City
+              {isHindi ? 'सेवा का मुख्य शहर' : 'Service Base City'}
             </label>
             <select
               value={formData.city}
@@ -194,7 +198,7 @@ export const ProviderSignupPage = () => {
           </div>
 
           <Input
-            label="Set Password"
+            label={isHindi ? 'पासवर्ड बनाएँ' : 'Set Password'}
             type={showPassword ? 'text' : 'password'}
             placeholder="Min 6 characters"
             leftIcon={Lock}
@@ -221,15 +225,15 @@ export const ProviderSignupPage = () => {
           className="w-full mt-2"
           isLoading={isLoading}
         >
-          Register Partner & Continue KYC
+          {isHindi ? 'पार्टनर पंजीकरण करें और KYC जारी रखें' : 'Register Partner & Continue KYC'}
         </Button>
       </form>
 
       <div className="pt-4 border-t border-surface-border text-center text-xs text-content-secondary">
         <p>
-          Already registered as a partner?{' '}
+          {isHindi ? 'पहले से पार्टनर हैं? ' : 'Already registered as a partner? '}
           <Link to={ROUTES.LOGIN} className="font-semibold text-brand-600 hover:underline">
-            Partner Sign In
+            {isHindi ? 'पार्टनर लॉग इन' : 'Partner Sign In'}
           </Link>
         </p>
       </div>

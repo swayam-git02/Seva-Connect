@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Briefcase, IndianRupee, Clock, Star, AlertCircle, ArrowRight, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Briefcase, IndianRupee, Clock, Star, AlertCircle, ArrowRight, CheckCircle2, ShieldCheck, Power } from 'lucide-react';
 import ProviderMetrics from '../../components/provider/ProviderMetrics';
 import BookingRequestCard from '../../components/provider/BookingRequestCard';
 import ActiveJobPanel from '../../components/provider/ActiveJobPanel';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
 import bookingService from '../../services/bookingService';
+import providerService from '../../services/providerService';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/useNotifications';
 import { ROUTES } from '../../constants/routes';
@@ -17,6 +18,8 @@ export const ProviderDashboardPage = () => {
   const { showSuccess, showError } = useNotifications();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(true);
+  const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
 
   const loadBookings = async () => {
     try {
@@ -32,6 +35,26 @@ export const ProviderDashboardPage = () => {
   useEffect(() => {
     loadBookings();
   }, [user]);
+
+  useEffect(() => {
+    providerService.getMyProfile()
+      .then((result) => setIsOnline(result.data?.isOnline !== false))
+      .catch(() => {});
+  }, []);
+
+  const toggleAvailability = async () => {
+    const nextStatus = !isOnline;
+    setIsUpdatingAvailability(true);
+    try {
+      await providerService.updateAvailability(nextStatus);
+      setIsOnline(nextStatus);
+      showSuccess(nextStatus ? 'You are online' : 'You are offline', nextStatus ? 'You can receive new booking requests.' : 'You will not appear in customer searches.');
+    } catch (error) {
+      showError('Availability not updated', error.message || 'Please try again.');
+    } finally {
+      setIsUpdatingAvailability(false);
+    }
+  };
 
   const activeJob = bookings.find((b) =>
     [BOOKING_STATUS.ON_THE_WAY, BOOKING_STATUS.STARTED].includes(b.status)
@@ -65,7 +88,7 @@ export const ProviderDashboardPage = () => {
       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
           <div className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-xs font-semibold mb-2 border border-emerald-500/30">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
             <span>Partner Active • Sector 15 Faridabad</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
@@ -76,12 +99,24 @@ export const ProviderDashboardPage = () => {
           </p>
         </div>
 
-        <Link
-          to={ROUTES.PROVIDER_CALENDAR}
-          className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 font-bold text-xs rounded-xl shadow-md transition-all shrink-0 text-white"
-        >
-          Manage Working Slots
-        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={toggleAvailability}
+            disabled={isUpdatingAvailability}
+            aria-pressed={isOnline}
+            className={`px-4 py-2.5 font-bold text-xs rounded-xl shadow-md transition-all text-white inline-flex items-center gap-2 disabled:opacity-60 ${isOnline ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-600 hover:bg-slate-700'}`}
+          >
+            <Power className="h-4 w-4" />
+            {isUpdatingAvailability ? 'Updating...' : isOnline ? 'Go Offline' : 'Go Online'}
+          </button>
+          <Link
+            to={ROUTES.PROVIDER_CALENDAR}
+            className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 font-bold text-xs rounded-xl shadow-md transition-all text-white"
+          >
+            Manage Working Slots
+          </Link>
+        </div>
       </div>
 
       {/* Metrics Row */}

@@ -109,14 +109,14 @@ const handleProcessPayment = (req, res) => {
 router.post(
   '/:id/collect-payment',
   authenticate,
-  authorize([USER_ROLES.PROVIDER, USER_ROLES.ADMIN, USER_ROLES.CUSTOMER]),
+  authorize(USER_ROLES.CUSTOMER),
   handleProcessPayment
 );
 
 router.post(
   '/:id/pay',
   authenticate,
-  authorize([USER_ROLES.PROVIDER, USER_ROLES.ADMIN, USER_ROLES.CUSTOMER]),
+  authorize(USER_ROLES.CUSTOMER),
   handleProcessPayment
 );
 

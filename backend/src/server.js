@@ -20,6 +20,20 @@ const server = app.listen(ENV.PORT, () => {
   console.log('========================================================');
 });
 
+// Port conflict error handling (EADDRINUSE)
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error('========================================================');
+    console.error(`❌ Port ${ENV.PORT} is already in use by another process!`);
+    console.error(`💡 To free this port in PowerShell, run:`);
+    console.error(`   Get-NetTCPConnection -LocalPort ${ENV.PORT} | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }`);
+    console.error('========================================================');
+    process.exit(1);
+  } else {
+    throw err;
+  }
+});
+
 // Jab deployment ya system server ko band karne ka signal (SIGTERM) bhejta hai,
 // toh server chal rahe requests ko safely complete karke close hota hai.
 process.on('SIGTERM', () => {

@@ -20,11 +20,12 @@ export const providerService = {
         p.rating_average as rating,
         p.rating_count as reviewCount,
         p.total_jobs as totalJobs,
+        p.is_online as isOnline,
         c.name as categoryName
       FROM users u
       JOIN provider_profiles p ON u.id = p.user_id
       LEFT JOIN service_categories c ON p.category_slug = c.slug
-      WHERE u.role = 'provider' AND u.is_active = 1
+      WHERE u.role = 'provider' AND u.is_active = 1 AND p.is_online = 1
     `;
     const params = [];
 
@@ -80,11 +81,12 @@ export const providerService = {
         p.rating_average as rating,
         p.rating_count as reviewCount,
         p.total_jobs as totalJobs,
+        p.is_online as isOnline,
         c.name as categoryName
       FROM users u
       JOIN provider_profiles p ON u.id = p.user_id
       LEFT JOIN service_categories c ON p.category_slug = c.slug
-      WHERE u.role = 'provider' AND u.is_active = 1
+      WHERE u.role = 'provider' AND u.is_active = 1 AND p.is_online = 1
       ORDER BY p.verified DESC, p.rating_average DESC, p.total_jobs DESC
       LIMIT 6
     `;
@@ -111,6 +113,7 @@ export const providerService = {
         p.rating_average as rating,
         p.rating_count as reviewCount,
         p.total_jobs as totalJobs,
+        p.is_online as isOnline,
         c.name as categoryName
       FROM users u
       JOIN provider_profiles p ON u.id = p.user_id
@@ -167,6 +170,7 @@ export const providerService = {
     return {
       ...provider,
       verified: Boolean(provider.verified),
+      isOnline: Boolean(provider.isOnline),
       location: provider.city,
       services,
       reviews,
@@ -188,18 +192,29 @@ export const providerService = {
         hourly_rate = COALESCE(?, hourly_rate),
         experience_years = COALESCE(?, experience_years),
         service_areas = COALESCE(?, service_areas),
+        is_online = COALESCE(?, is_online),
         updated_at = ?
       WHERE user_id = ?
     `);
 
     db.transaction(() => {
-      updateUser.run(updates.name, updates.phone, updates.city, updates.address, now, userId);
+      // An availability update intentionally supplies only `isOnline`; bind
+      // missing profile fields as SQL NULL so COALESCE preserves their values.
+      updateUser.run(
+        updates.name ?? null,
+        updates.phone ?? null,
+        updates.city ?? null,
+        updates.address ?? null,
+        now,
+        userId
+      );
       updateProfile.run(
-        updates.businessName,
-        updates.bio,
-        updates.hourlyRate,
-        updates.experienceYears,
-        updates.serviceAreas,
+        updates.businessName ?? null,
+        updates.bio ?? null,
+        updates.hourlyRate ?? null,
+        updates.experienceYears ?? null,
+        updates.serviceAreas ?? null,
+        updates.isOnline === undefined ? null : (updates.isOnline ? 1 : 0),
         now,
         userId
       );
@@ -358,7 +373,7 @@ export const providerService = {
     const bookings = db.prepare(`
       SELECT total_price_paise, service_completed_at
       FROM bookings
-      WHERE provider_id = ? AND status = 'completed'
+      WHERE provider_id = ? AND status = 'completed' AND payment_status = 'PAID'
     `).all(providerId);
 
     const totalRevenuePaise = bookings.reduce((sum, b) => sum + b.total_price_paise, 0);

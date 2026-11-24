@@ -60,6 +60,8 @@ export const ProviderBookingsPage = () => {
   };
 
   const filtered = bookings.filter((b) => {
+    // Completed services belong in earnings/history, not in the active job queue.
+    if (b.status === BOOKING_STATUS.COMPLETED || b.status === 'completed') return false;
     if (filter === 'ALL') return true;
     if (filter === 'ACTIVE') return [BOOKING_STATUS.CONFIRMED, BOOKING_STATUS.ON_THE_WAY, BOOKING_STATUS.STARTED].includes(b.status);
     return b.status === filter;
@@ -79,7 +81,7 @@ export const ProviderBookingsPage = () => {
 
         {/* Filter buttons */}
         <div className="flex bg-white p-1 rounded-xl border border-surface-border shadow-subtle overflow-x-auto">
-          {['ALL', 'ACTIVE', BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED].map((tab) => (
+          {['ALL', 'ACTIVE', BOOKING_STATUS.CANCELLED].map((tab) => (
             <button
               key={tab}
               type="button"

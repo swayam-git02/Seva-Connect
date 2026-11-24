@@ -412,7 +412,7 @@ export const bookingService = {
 
     db.transaction(() => {
       db.prepare(`
-        UPDATE bookings SET status = ?, payment_status = 'PAID', service_completed_at = ?, updated_at = ?
+      UPDATE bookings SET status = ?, service_completed_at = ?, updated_at = ?
         WHERE id = ?
       `).run(BOOKING_STATUS.COMPLETED, now, now, bookingId);
 
@@ -426,19 +426,6 @@ export const bookingService = {
         WHERE user_id = ?
       `).run(now, assignedProviderId);
 
-      // Record transaction for assigned provider
-      db.prepare(`
-        INSERT INTO provider_transactions (id, provider_id, booking_id, amount_paise, type, description, created_at)
-        VALUES (?, ?, ?, ?, 'credit', ?, ?)
-      `).run(
-        `txn-${crypto.randomUUID()}`,
-        assignedProviderId,
-        bookingId,
-        netEarningPaise,
-        `Payment credit for Booking #${bookingId}`,
-        now
-      );
-
       db.prepare(`
         INSERT INTO booking_status_history (id, booking_id, status, changed_by_user_id, note, timestamp)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -447,14 +434,14 @@ export const bookingService = {
         bookingId,
         BOOKING_STATUS.COMPLETED,
         userId,
-        'Ending Code verified. Job closed and payment processed.',
+        'Service completed. Customer payment is pending.',
         now
       );
     })();
 
     return {
       success: true,
-      message: 'Ending Code verified! Job marked as Completed and payment credited.',
+      message: 'Ending Code verified! Service is complete and the customer has been asked to pay.',
       status: BOOKING_STATUS.COMPLETED,
     };
   },
@@ -464,8 +451,14 @@ export const bookingService = {
     const booking = db.prepare('SELECT id, provider_id, customer_id, status, payment_status, total_price_paise FROM bookings WHERE id = ?').get(bookingId);
     if (!booking) throw new Error('Booking not found.');
 
-    if (booking.provider_id !== userId && booking.customer_id !== userId) {
-      throw new Error('Unauthorized. Only the customer or assigned service provider can process payment for this booking.');
+    if (booking.customer_id !== userId) {
+      throw new Error('Unauthorized. Only the booking customer can process payment.');
+    }
+    if (booking.status !== BOOKING_STATUS.COMPLETED) {
+      throw new Error('Payment becomes available once the provider completes the service.');
+    }
+    if (booking.payment_status === 'PAID') {
+      throw new Error('This booking has already been paid.');
     }
 
     const paymentMode = (payload.paymentMode || 'ONLINE').toUpperCase();

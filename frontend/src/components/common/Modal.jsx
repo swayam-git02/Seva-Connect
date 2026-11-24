@@ -16,7 +16,7 @@ export const Modal = ({
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isOpen) {
-        onClose();
+        onClose?.();
       }
     };
     if (isOpen) {
